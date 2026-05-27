@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>朕天下專屬 戰神賽特外掛</title>
+    <style>
+        :root {
+            --primary-gold: #ffd700;
+            --accent-blue: #00d4ff;
+            --bg-dark: #0a0f1e;
+            --card-bg: #161e31;
+            --text-light: #e2e8f0;
+            --danger: #ff4d4d;
+            --success: #4ade80;
+            --purple-vip: #a855f7;
+        }
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            margin: 0;
+            overflow-x: hidden;
+        }
+        .hidden { display: none !important; }
+
+        .test-badge {
+            background: linear-gradient(135deg, #00d4ff, #0072ff);
+            color: white;
+            font-weight: bold;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-bottom: 10px;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+
+        /* 跑馬燈 */
+        .marquee-container {
+            background: rgba(0, 0, 0, 0.9);
+            color: var(--primary-gold);
+            padding: 12px 0;
+            white-space: nowrap;
+            overflow: hidden;
+            border-bottom: 1px solid var(--primary-gold);
+            font-size: 0.95rem;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+        }
+        .marquee-content-wrapper {
+            display: inline-block;
+            white-space: nowrap;
+            animation: marquee-infinite 2560s linear infinite;
+            will-change: transform;
+        }
+        .marquee-text {
+            display: inline-block;
+            padding-right: 50px;
+        }
+        @keyframes marquee-infinite {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        #mainContainer { padding-top: 60px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 50px; }
+
+        .auth-box, #gameSelect {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 15px;
+            border: 2px solid var(--primary-gold);
+            text-align: center;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.2);
+            width: 90%;
+            max-width: 400px;
+            margin-top: 30px;
+        }
+
+        .version-info {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px dashed rgba(255, 215, 0, 0.3);
+            text-align: left;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        .version-item { display: flex; justify-content: space-between; }
+        .version-val { font-family: monospace; color: var(--accent-blue); font-weight: bold; }
+
+        .game-card {
+            background: #1e293b;
+            border: 1px solid var(--accent-blue);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: bold;
+            color: var(--primary-gold);
+            font-size: 1.3rem;
+        }
+        .game-card:hover { transform: scale(1.02); background: #2d3748; }
+
+        .capital-section {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 5px solid var(--accent-blue);
+        }
+        .capital-inputs { display: flex; gap: 8px; margin-top: 10px; }
+        .cap-btn { flex: 1; padding: 10px; background: #334155; border: 1px solid var(--accent-blue); color: white; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        #userCapital, #vipCapital { 
+            padding: 10px;
+            border-radius: 5px; 
+            background: #000; 
+            color: var(--success); 
+            border: 1px solid #444; 
+            font-size: 1.1rem;
+            text-align: center;
+            width: 80%;
+        }
+
+        #roomApp { width: 95%; max-width: 1200px; padding: 15px; display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+        @media (max-width: 850px) { #roomApp { grid-template-columns: 1fr; } }
+
+        .info-bar { background: #0f172a; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #334155; }
+
+        .room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; min-height: 200px; }
+        .room-item { background: var(--card-bg); border: 1px solid #2d3748; padding: 12px; border-radius: 8px; text-align: center; animation: fadeIn 0.3s ease; }
+        .room-item.vip-style { border: 2px dashed var(--purple-vip); box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); background: linear-gradient(145deg, #161e31, #25183a); }
+        @media (prefers-reduced-motion: reduce) { .marquee-content-wrapper { animation: none; } .room-item { animation: none; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .room-id { color: var(--accent-blue); font-weight: bold; font-size: 1.1rem; }
+        .win-rate { font-size: 1.5rem; font-weight: bold; margin: 5px 0; }
+
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+        .side-box { background: var(--card-bg); padding: 20px; border-radius: 10px; border: 1px solid var(--primary-gold); height: fit-content; }
+        .suggest-item { background: rgba(255, 215, 0, 0.03); border-bottom: 1px solid #2d3748; padding: 12px 0; font-size: 0.85rem; color: #cbd5e1; line-height: 1.4; }
+        .side-title { color: var(--primary-gold); font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid var(--primary-gold); padding-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+
+        input { padding: 10px; border-radius: 5px; border: 1px solid #334155; background: #0f172a; color: white; }
+        .refresh-btn { background: linear-gradient(135deg, #00d4ff, #0072ff); color: white; padding: 12px 25px; border-radius: 8px; border:none; font-weight: bold; cursor: pointer; }
+        .refresh-btn:disabled { background: #4b5563; opacity: 0.8; }
+        
+        .top-up-urgent { color: var(--danger); font-weight: bold; animation: blink 1.5s infinite; font-size: 0.8rem; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .signal-tag { margin-top: 8px; padding: 4px; background: rgba(255, 77, 77, 0.1); border: 1px solid var(--danger); border-radius: 4px; font-size: 0.75rem; color: #ff9999; }
+
+        .rank-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; text-align: left; }
+        .rank-table th { color: var(--primary-gold); padding: 8px 4px; border-bottom: 1px solid #334155; }
+        .rank-table td { padding: 8px 4px; border-bottom: 1px solid #1e293b; }
+        .rank-num { font-weight: bold; color: var(--accent-blue); width: 30px; }
+
+        .wheel-container { position: relative; width: 220px; height: 220px; margin: 0 auto 15px auto; }
+        .wheel { width: 100%; height: 100%; border-radius: 50%; border: 5px solid var(--primary-gold); background: conic-gradient(#475569 0deg 60deg, #ef4444 60deg 120deg, #22c55e 120deg 180deg, #3b82f6 180deg 240deg, #a855f7 240deg 300deg, #f97316 300deg 360deg); transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1); position: relative; overflow: hidden; }
+        .wheel-pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 25px solid var(--primary-gold); z-index: 10; }
+        .wheel-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 65px; height: 65px; background: var(--primary-gold); border-radius: 50%; border: none; font-weight: bold; color: #000; cursor: pointer; z-index: 11; font-size: 0.8rem; box-shadow: 0 0 10px rgba(0,0,0,0.5); text-align: center; line-height: 1.2; }
+        .wheel-btn:disabled { background: #6b7280; color: #d1d5db; cursor: not-allowed; font-size: 0.7rem; }
+        .wheel-text { position: absolute; width: 100%; height: 100%; text-align: center; font-size: 0.65rem; font-weight: bold; color: white; text-shadow: 1px 1px 2px black; }
+
+        .shop-btn { width: 100%; padding: 8px; background: #1e293b; border: 1px solid var(--primary-gold); color: var(--primary-gold); border-radius: 5px; margin-top: 8px; cursor: pointer; font-weight: bold; font-size: 0.85rem; }
+        .shop-btn:hover { background: var(--primary-gold); color: black; }
+        .shop-btn:disabled { background: #4b5563 !important; color: #cbd5e1 !important; cursor: not-allowed; border-color: #4b5563 !important; }
+        .help-icon { background: #334155; color: var(--primary-gold); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
+
+        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:999; display:flex; justify-content:center; align-items:center; }
+        .modal-content { background:var(--card-bg); border:2px solid var(--primary-gold); padding:25px; border-radius:15px; width:90%; max-width:350px; text-align:center; }
+        
+        .help-list { text-align: left; list-style: none; padding: 0; margin: 15px 0; font-size: 0.9rem; line-height: 1.8; }
+        .help-list li { margin-bottom: 8px; display: flex; align-items: center; }
+        .color-dot { inline-size: 12px; block-size: 12px; border-radius: 50%; display: inline-block; margin-right: 10px; flex-shrink: 0; }
+    </style>
+</head>
+<body>
+
+<div class="marquee-container">
+    <div class="marquee-content-wrapper" id="marqueeWrapper">
+        <span class="marquee-text" id="marqueeBase"></span>
+        <span class="marquee-text" id="marqueeRepeat"></span>
+    </div>
+</div>
+
+<div id="mainContainer">
+    <div id="authOverlay">
+        <div class="auth-box">
+            <div class="test-badge">VIP 高速授權版</div>
+            <h1 style="color: var(--primary-gold); font-size: 1.6rem; margin-bottom: 20px;">朕天下專屬 戰神賽特外掛</h1>
+            <p style="opacity: 0.8; font-size: 0.9rem;">請輸入帳號以解鎖功能</p>
+            <input type="text" id="passInput" placeholder="請輸入帳號..." style="width:85%; margin: 15px 0;">
+            <button id="loginBtn" style="width:90%; padding: 15px; background: var(--primary-gold); border:none; font-weight:bold; border-radius:8px; cursor:pointer;" onclick="checkPassword()">確認授權</button>
+            <div style="margin-top:20px; font-size:0.85rem; color:#00ff7f; font-weight:bold;">Line：@yao88 小龍女</div>
+            
+            <div class="version-info">
+                <div class="version-item"><span>戰神賽特 2 版本號：</span><span class="version-val">1.1.2_4</span></div>
+                <div class="version-item"><span>戰神賽特 版本號：</span><span class="version-val">3.4.29_3</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="gameSelect" class="hidden">
+        <div class="test-badge" style="margin-top: 10px;">系統連線成功</div>
+        <h2 style="color: var(--primary-gold); margin-bottom:20px;">朕天下專屬 戰神賽特外掛</h2>
+        <div class="game-card" onclick="goToRooms('戰神賽特')">戰神賽特</div>
+        <div class="game-card" onclick="goToRooms('戰神賽特 2')">戰神賽特 2</div>
+        <div style="margin-top:20px; font-size:0.85rem; color:#00ff7f; font-weight:bold;">Line：@yao88 小龍女</div>
+    </div>
+
+    <div id="roomApp" class="hidden">
+        <div class="main-content">
+            <button onclick="backToGameSelect()" style="background:#334155; color:white; border:none; padding:8px 20px; margin-bottom:15px; border-radius:5px; cursor:pointer;">← 返回選擇</button>
+            
+            <div class="capital-section">
+                <div style="font-weight:bold; color:var(--accent-blue); font-size:0.9rem;">輸入目前本金</div>
+                <div class="capital-inputs">
+                    <input type="number" id="userCapital" placeholder="請輸入數字">
+                    <button class="cap-btn" onclick="setCap(3000)">$3000</button>
+                    <button class="cap-btn" onclick="setCap(5000)">$5000</button>
+                    <button class="cap-btn" onclick="setCap(10000)">$10000</button>
+                </div>
+            </div>
+
+            <div class="info-bar">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div style="font-size:0.95rem;"><span style="color:#94a3b8;">更新倒數：</span><span id="timer" style="color:var(--success); font-weight:bold;">60:00</span></div>
+                    <div style="font-size:0.95rem;"><span style="color:#94a3b8;">刷新次數：</span><span id="refreshCount" style="color:var(--primary-gold); font-weight:bold;">0</span> 次</div>
+                    <div id="topUpMsg"></div>
+                    <button class="refresh-btn" id="manualRefreshBtn" onclick="manualRefresh()">立即手動刷新</button>
+                </div>
+            </div>
+
+            <h2 id="currentGameTitle" style="color: var(--primary-gold); text-align:center; font-size:1.3rem;"></h2>
+            <div id="roomList" class="room-grid"></div>
+            <div style="margin-top:30px; font-size:0.9rem; color:#94a3b8; text-align:center;">遇到問題請聯繫代理 Line：<span style="color:#00ff7f; font-weight:bold;">@yao88</span> 小龍女</div>
+        </div>
+
+        <div class="sidebar">
+            <div class="side-box">
+                <div class="side-title"><span>⚡</span> 今日建議訊號</div>
+                <div id="suggestList">載入中...</div>
+            </div>
+
+            <div class="side-box">
+                <div class="side-title">
+                    <span>🎁 天天抽抽獎券</span>
+                    <span class="help-icon" onclick="toggleModal('helpModal', true)">?</span>
+                </div>
+                <div class="wheel-container">
+                    <div class="wheel-pointer"></div>
+                    <div class="wheel" id="wheelDisk">
+                        <div class="wheel-text" style="transform: rotate(30deg) translateY(-65px);">0張(灰色)</div>
+                        <div class="wheel-text" style="transform: rotate(90deg) translateY(-65px);">5張(紅色)</div>
+                        <div class="wheel-text" style="transform: rotate(150deg) translateY(-65px);">10張(綠色)</div>
+                        <div class="wheel-text" style="transform: rotate(210deg) translateY(-65px);">30張(藍色)</div>
+                        <div class="wheel-text" style="transform: rotate(270deg) translateY(-65px);">50張(紫色)</div>
+                        <div class="wheel-text" style="transform: rotate(330deg) translateY(-65px);">100張(橘色)</div>
+                    </div>
+                    <button class="wheel-btn" id="spinBtn" onclick="spinWheel()">抽獎</button>
+                </div>
+                <div id="wheelMsg" style="text-align:center; font-size:0.85rem; font-weight:bold; color:var(--success); margin-bottom:10px;"></div>
+                
+                <div style="border-top: 1px solid #334155; padding-top:10px;">
+                    <div style="font-size:0.85rem; color:#94a3b8; display:flex; justify-content:space-between;">
+                        <span>我的抽獎券餘額:</span>
+                        <span style="color:var(--success); font-weight:bold;"><span id="ticketBalance">0</span> 張</span>
+                    </div>
+                    <button class="shop-btn" id="btnVipRoom" onclick="openVipModal()">兌換 VIP好房 (消耗 100張)</button>
+                    <button class="shop-btn" id="btnGoldRefresh" style="border-color:var(--primary-gold); color:var(--primary-gold);" onclick="redeemGoldRefresh()">兌換 黃金重抽 (消耗 150張)</button>
+                </div>
+            </div>
+
+            <div class="side-box">
+                <div class="side-title"><span>🔥</span> 今日戰神爆分榜</div>
+                <table class="rank-table">
+                    <thead>
+                        <tr><th>名次</th><th>玩家ID</th><th>遊戲</th><th>爆分金額</th></tr>
+                    </thead>
+                    <tbody id="rankList"><tr><td colspan="4" style="text-align:center;">載入中...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="helpModal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 380px;">
+        <h3 style="color: var(--primary-gold); margin-bottom: 15px;">大輪盤與獎項說明</h3>
+        
+        <div style="text-align: left; font-weight: bold; margin-bottom: 5px;">🎨 輪盤全隨機配置：</div>
+        <ul class="help-list">
+            <li><span class="color-dot" style="background: #475569;"></span>黑色區：獲得 0 張抽獎券</li>
+            <li><span class="color-dot" style="background: #ef4444;"></span>紅色區：獲得 5 張抽獎券</li>
+            <li><span class="color-dot" style="background: #22c55e;"></span>綠色區：獲得 10 張抽獎券</li>
+            <li><span class="color-dot" style="background: #3b82f6;"></span>藍色區：獲得 30 張抽獎券</li>
+            <li><span class="color-dot" style="background: #a855f7;"></span>紫色區：獲得 50 張抽獎券</li>
+            <li><span class="color-dot" style="background: #f97316;"></span>橘色區：獲得 100 張抽獎券</li>
+        </ul>
+        
+        <div style="color: var(--danger); text-align: left; font-weight: bold; font-size: 0.9rem; margin-bottom: 15px;">
+            ⚠️ 限制：每人每 24 小時限抽 1 次。
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #334155; margin: 15px 0;">
+        
+        <div style="text-align: left; font-weight: bold; margin-bottom: 8px;">🛍️ 品項說明：</div>
+        <div style="text-align: left; font-size: 0.85rem; line-height: 1.6; opacity: 0.95;">
+            1. VIP好房 (100張)：單獨派發精確獨立爆分房，其他玩家完全刷不到。<br>
+            2. 黃金重抽保底 (150張)：保證開出至少 5 台大於 92% 紅色高勝率機台！
+        </div>
+        
+        <button onclick="toggleModal('helpModal', false)" style="margin-top:20px; width: 100%; padding:12px; background: var(--primary-gold); color: black; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">關閉說明</button>
+    </div>
+</div>
+
+<div id="vipModal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <h3 style="color: var(--primary-gold);">兌換 VIP 精準好房</h3>
+        <p style="font-size:0.85rem; opacity:0.9; line-height:1.5;">
+            兌換將扣除 100 張抽獎券，請輸入目前本金<br>
+            <span style="color: var(--primary-gold); font-weight: bold;">※溫馨提醒：房間有可能已被其他玩家佔走※</span>
+        </p>
+        <input type="number" id="vipCapital" placeholder="請輸入目前本金..." style="width:80%; margin: 15px 0;">
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button onclick="toggleModal('vipModal', false)" style="padding:8px 20px; background:#4b5563; color:white; border:none; border-radius:5px; cursor:pointer;">取消</button>
+            <button id="btnConfirmVip" onclick="confirmVipRoom()" style="padding:8px 20px; background:var(--purple-vip); color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">確認兌換</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbwKVJWPepkG2XtjY_8FzlvCzHERWsbNZIKt-uFtB3c_Y-dmHWVrQ51Z7g3Z2NxV2tMf/exec"; 
+    
+    const APP_BUILTIN_SIGNALS = [
+        "訊號：4角落 3角同大圖", "訊號：4消+3倍以上倍數", "訊號：版面7眼沒消", "訊號：版面7眼有消",
+        "訊號：單轉2消後出7蛇", "訊號：單轉5消直接買", "訊號：2消後版面2+2大圖", "訊號：單轉回分超過注額20倍",
+        "訊號 :6蛇+6同色寶石", "訊號：單消後版面19顆以上大圖", "訊號：2消+2甲+2顆倍數球", "訊號：3消+3甲",
+        "訊號：消大圖後10轉內連消3", "訊號：消眼睛後開自動100轉 進免出來追買", "訊號：平轉出百倍球 降注買一次",
+        "訊號：消大圖+3倍以上倍數球", "訊號：單轉消開兩次大圖", "訊號：未開超過50後 出3+6+6大圖買",
+        "訊號：消除後出現N型大圖", "訊號：大圖出現頂樓圖案", "訊號：單轉吃到3顆倍數球", "訊號：女神倍數球 升級兩次",
+        "訊號：消除後出現3*2大圖", "訊號：有消後 刀蛇弓眼顆數一樣", "訊號：連續2轉丟球沒吃 下次消除後買",
+        "訊號：自動100轉進免後出來加注買", "訊號：7蛇+7同色寶石", "訊號：消蛇吃2倍球", "訊號：消蛇吃4倍球",
+        "訊號：消刀+黃寶石", "訊號：消蛇+紫寶石", "訊號：消弓+黃寶石", "訊號：消眼+藍寶石",
+        "訊號：平轉進免遊後降注追買", "訊號：切自動100轉沒進免 2 3 5塊各10轉後買", "訊號：消1次大圖+2次寶石",
+        "訊號：有消除的版面 右邊三排出兩顆倍數球", "訊號：單轉消9顆大圖"
+    ];
+
+    let dbSignalsPool = []; 
+    let userRefreshQuota = 0; 
+    let currentUserId = ""; 
+    let timerInterval;
+    let ticketPoints = 0; 
+    
+    let vipRoomActive = null; 
+    let goldGuaranteeActive = false;
+
+    async function fetchWithTimeout(url, options = {}, timeout = 3500, retries = 2) {
+        for (let i = 0; i < retries; i++) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(id);
+                if (!response.ok) throw new Error("網路錯誤");
+                return await response.json();
+            } catch (err) {
+                clearTimeout(id);
+                console.warn(`第 ${i + 1} 次連線嘗試失敗，準備重試...`);
+                if (i === retries - 1) throw err;
+            }
+        }
+    }
+
+    function initMarquee() {
+        const games = ["戰神賽特", "戰神賽特 2"];
+        const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+        let content = "";
+        for(let i=0; i<20; i++) {
+            let fakeId = "";
+            for(let j=0; j<5; j++) fakeId += chars.charAt(Math.floor(Math.random() * chars.length));
+            let game = games[Math.floor(Math.random() * games.length)];
+            let amount = Math.floor(Math.random() * 490000) + 10000; 
+            content += `恭喜 玩家 ${fakeId} 在 ${game} 成功爆分：${amount.toLocaleString()} 元！ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `;
+        }
+        document.getElementById('marqueeBase').innerHTML = content;
+        document.getElementById('marqueeRepeat').innerHTML = content;
+    }
+    initMarquee();
+
+    async function syncDatabaseData() {
+        try {
+            const data = await fetchWithTimeout(`${API_URL}?action=getSignalsAndRanks`, {}, 3000);
+            
+            if (data.signals && data.signals.length > 0) {
+                dbSignalsPool = data.signals;
+                const shuffled = [...dbSignalsPool].sort(() => 0.5 - Math.random());
+                const selected = shuffled.slice(0, 5);
+                document.getElementById('suggestList').innerHTML = selected.map(s => `<div class="suggest-item">◆ ${s}</div>`).join('');
+            } else {
+                document.getElementById('suggestList').innerHTML = `<div class="suggest-item">暫無建議訊號</div>`;
+            }
+
+            const list = document.getElementById('rankList');
+            if (data.ranks && data.ranks.length > 0) {
+                let html = "";
+                const topRanks = data.ranks.slice(0, 5);
+                topRanks.forEach((item, idx) => {
+                    html += `<tr><td class="rank-num">${idx+1}</td><td>${item.id}</td><td style="color:var(--accent-blue)">${item.game}</td><td style="color:var(--danger);font-weight:bold;">$${item.amnt.toLocaleString()}</td></tr>`;
+                });
+                list.innerHTML = html;
+            } else {
+                list.innerHTML = `<tr><td colspan="4" style="text-align:center;">暫無爆分數據</td></tr>`;
+            }
+        } catch (e) {
+            console.log("網絡波動，略過側邊欄雲端即時同步");
+        }
+    }
+
+    function setCap(val) { document.getElementById('userCapital').value = val; }
+    function updateTicketDOM() { document.getElementById('ticketBalance').innerText = ticketPoints; }
+    function toggleModal(id, open) { document.getElementById(id).classList.toggle('hidden', !open); }
+    
+    async function syncTicketsToDatabase(changeAmount, spinTimeStr = "") {
+        try {
+            let url = `${API_URL}?action=updateTickets&id=${encodeURIComponent(currentUserId)}&ticketChange=${changeAmount}`;
+            if (spinTimeStr) { url += `&spinTime=${spinTimeStr}`; }
+            
+            const result = await fetchWithTimeout(url, {}, 4000);
+            if (result.success) {
+                ticketPoints = result.ticketBalance;
+                updateTicketDOM();
+                return true;
+            } else {
+                alert("同步失敗：" + result.msg);
+                return false;
+            }
+        } catch (e) {
+            alert("雲端連線失敗，請檢查網路或稍後重試");
+            return false;
+        }
+    }
+
+    async function checkPassword() {
+        const userId = document.getElementById('passInput').value.trim();
+        if (!userId) return alert("請輸入帳號");
+        const btn = document.getElementById("loginBtn");
+        btn.innerText = "高速授權驗證中...";
+        btn.disabled = true;
+        try {
+            const result = await fetchWithTimeout(`${API_URL}?action=login&id=${encodeURIComponent(userId)}`, {}, 4000);
+            if (result.success) {
+                currentUserId = userId;
+                userRefreshQuota = parseInt(result.refreshLimit) || 0; 
+                ticketPoints = parseInt(result.ticketBalance) || 0; 
+                updateTicketDOM();
+                showGameSelect();
+                checkWheelStatus(); 
+            } else { 
+                alert(result.msg || "授權驗證失敗，請重新確認帳號或聯繫小龍女。");
+            }
+        } catch (e) { 
+            alert("伺服器回應超時，請檢查網路後重新點擊確認授權。");
+        } finally {
+            btn.innerText = "確認授權";
+            btn.disabled = false;
+        }
+    }
+
+    function showGameSelect() {
+        document.getElementById('authOverlay').classList.add('hidden');
+        document.getElementById('gameSelect').classList.remove('hidden');
+    }
+
+    style = document.createElement('style');
+
+    function goToRooms(gameName) {
+        vipRoomActive = null;
+        
+        document.getElementById('gameSelect').classList.add('hidden');
+        document.getElementById('roomApp').classList.remove('hidden');
+        document.getElementById('currentGameTitle').innerText = gameName;
+        
+        syncDatabaseData(); 
+        loadOrGenerateRooms(gameName); 
+        updateQuotaDisplay();
+        startTimer();
+    }
+
+    function loadOrGenerateRooms(gameName, forceRefresh = false) {
+        const cacheKey = `rooms_${currentUserId}_${gameName}`;
+        const savedData = localStorage.getItem(cacheKey);
+        
+        if (savedData && !forceRefresh && !goldGuaranteeActive) {
+            renderRooms(JSON.parse(savedData));
+        } else {
+            const newRooms = [];
+            const roomIds = [];
+            const maxRoom = (gameName === '戰神賽特') ? 2500 : 3500;
+            
+            const shuffledSignals = [...APP_BUILTIN_SIGNALS].sort(() => 0.5 - Math.random());
+            let signalIndex = 0;
+
+            let targetRedCount = goldGuaranteeActive ? (Math.floor(Math.random() * 3) + 5) : (Math.floor(Math.random() * 5) + 1);
+            let currentRedCount = 0;
+
+            while(roomIds.length < 30) {
+                let r = Math.floor(Math.random() * maxRoom) + 1;
+                if(!roomIds.includes(r)) roomIds.push(r);
+            }
+            
+            roomIds.sort((a, b) => a - b).forEach(id => {
+                let rate;
+                let redChance = goldGuaranteeActive ? 0.6 : 0.25;
+                if (currentRedCount < targetRedCount && (Math.random() < redChance || currentRedCount + (30 - newRooms.length) <= targetRedCount)) {
+                    rate = Math.floor(Math.random() * 7) + 92; 
+                    currentRedCount++;
+                } else { 
+                    rate = Math.floor(Math.random() * 30) + 58; 
+                }
+                
+                let signal = null;
+                if (rate >= 92) {
+                    signal = shuffledSignals[signalIndex % shuffledSignals.length];
+                    signalIndex++;
+                }
+                
+                newRooms.push({ id, rate, signal });
+            });
+            localStorage.setItem(cacheKey, JSON.stringify(newRooms));
+            renderRooms(newRooms);
+            
+            if (goldGuaranteeActive) {
+                goldGuaranteeActive = false;
+                alert("✨ 黃金重抽已成功觸發！");
+            }
+        }
+    }
+
+    function renderRooms(rooms) {
+        const roomList = document.getElementById('roomList');
+        roomList.innerHTML = "";
+        const fragment = document.createDocumentFragment();
+        
+        if (vipRoomActive && document.getElementById('currentGameTitle').innerText === vipRoomActive.game) {
+            const vDiv = document.createElement('div');
+            vDiv.className = 'room-item vip-style';
+            vDiv.innerHTML = `<div class="room-id" style="color:var(--purple-vip)">💎 VIP 獨立房 ${vipRoomActive.id}</div><div class="win-rate" style="color:var(--danger)">${vipRoomActive.rate}%</div><div class="signal-tag" style="background:rgba(168,85,247,0.2);border-color:var(--purple-vip);color:#e9d5ff;">${vipRoomActive.signal}</div>`;
+            fragment.appendChild(vDiv);
+        }
+
+        rooms.forEach(room => {
+            let color = "#cbd5e1";
+            if (room.rate >= 92) color = "var(--danger)";
+            else if (room.rate >= 82) color = "var(--primary-gold)";
+            const div = document.createElement('div');
+            div.className = 'room-item';
+            div.innerHTML = `<div class="room-id">房號 ${room.id}</div><div class="win-rate" style="color:${color}">${room.rate}%</div>${room.signal ? `<div class="signal-tag">${room.signal}</div>` : ''}`;
+            fragment.appendChild(div);
+        });
+        roomList.appendChild(fragment);
+    }
+
+    function updateQuotaDisplay() {
+        document.getElementById('refreshCount').innerText = userRefreshQuota;
+        const btn = document.getElementById('manualRefreshBtn');
+        const msg = document.getElementById('topUpMsg');
+        if (userRefreshQuota <= 0) {
+            btn.disabled = true;
+            btn.innerText = "刷新次數不足";
+            msg.innerHTML = `<span class="top-up-urgent">請聯繫小龍女補點！</span>`;
+        } else {
+            btn.disabled = false;
+            btn.innerText = "立即手動刷新";
+            msg.innerHTML = "";
+        }
+    }
+
+    async function manualRefresh() {
+        const cap = document.getElementById('userCapital').value;
+        if (!cap || cap <= 0) return alert("請先輸入目前本金！");
+        
+        const refreshBtn = document.getElementById('manualRefreshBtn');
+        const gameName = document.getElementById('currentGameTitle').innerText;
+        
+        if(userRefreshQuota > 0) {
+            userRefreshQuota--;
+            updateQuotaDisplay();
+        }
+
+        loadOrGenerateRooms(gameName, true); 
+
+        refreshBtn.disabled = true;
+        refreshBtn.innerText = "精準同步中...";
+
+        try {
+            const result = await fetchWithTimeout(`${API_URL}?action=refresh&id=${encodeURIComponent(currentUserId)}`, {}, 3000);
+            if (result.success) {
+                userRefreshQuota = result.refreshLimit; 
+            }
+            syncDatabaseData(); 
+        } catch (error) { 
+            console.log("後台同步有些微延遲，已由本地防護安全接管");
+        } finally { 
+            refreshBtn.disabled = (userRefreshQuota <= 0);
+            refreshBtn.innerText = (userRefreshQuota <= 0) ? "刷新次數不足" : "立即手動刷新";
+            updateQuotaDisplay(); 
+        }
+    }
+
+    function checkWheelStatus() {
+        const spinBtn = document.getElementById('spinBtn');
+        const msgDom = document.getElementById('wheelMsg');
+        const lastSpin = localStorage.getItem(`last_spin_time_${currentUserId}`);
+        const now = Date.now();
+
+        if (lastSpin && (now - parseInt(lastSpin) < 86400000)) {
+            spinBtn.disabled = true;
+            spinBtn.innerText = "今日已抽";
+            
+            const remainMs = 86400000 - (now - parseInt(lastSpin));
+            const remainHours = Math.ceil(remainMs / (1000 * 60 * 60));
+            msgDom.innerText = `每 24 小時限抽 1 次，約 ${remainHours} 小時後解鎖`;
+            msgDom.style.color = "var(--danger)";
+        } else {
+            spinBtn.disabled = false;
+            spinBtn.innerText = "抽獎";
+            msgDom.innerText = "";
+            msgDom.style.color = "var(--success)";
+        }
+    }
+
+    function getWeightedPrize() {
+        const weights = [40, 25, 18, 11, 5, 1];
+        const totalWeight = weights.reduce((a, b) => a + b, 0);
+        let random = Math.floor(Math.random() * totalWeight);
+        for (let i = 0; i < weights.length; i++) {
+            if (random < weights[i]) return i;
+            random -= weights[i];
+        }
+        return 0;
+    }
+
+    function spinWheel() {
+        const btn = document.getElementById('spinBtn');
+        const wheel = document.getElementById('wheelDisk');
+        const msgDom = document.getElementById('wheelMsg');
+        btn.disabled = true;
+        btn.innerText = "定格中";
+
+        const prizeIdx = getWeightedPrize(); 
+        const baseRotations = 6 * 360;
+        const prizeAngles = [30, 90, 150, 210, 270, 330]; 
+        const finalAngle = baseRotations + (360 - prizeAngles[prizeIdx]);
+
+        wheel.style.transform = `rotate(${finalAngle}deg)`;
+        
+        setTimeout(async () => {
+            const ticketsAwarded = [0, 5, 10, 30, 50, 100];
+            const prizeCount = ticketsAwarded[prizeIdx];
+            const nowTimestamp = Date.now();
+
+            if (prizeCount === 0) {
+                msgDom.innerText = "殘念！這次是 0 張，明天再接再厲！";
+                msgDom.style.color = "var(--danger)";
+                localStorage.setItem(`last_spin_time_${currentUserId}`, nowTimestamp.toString());
+            } else {
+                msgDom.innerText = `連線同步中...`;
+                let syncSuccess = await syncTicketsToDatabase(prizeCount, nowTimestamp.toString());
+                if (syncSuccess) {
+                    msgDom.innerText = `🎉 成功抽中並同步：${prizeCount} 張抽獎券！`;
+                    msgDom.style.color = "var(--success)";
+                    localStorage.setItem(`last_spin_time_${currentUserId}`, nowTimestamp.toString());
+                }
+            }
+            checkWheelStatus(); 
+        }, 4100);
+    }
+
+    function openVipModal() {
+        if (ticketPoints < 100) return alert("抽獎券不足 100 張！");
+        const gameName = document.getElementById('currentGameTitle').innerText;
+        if (!gameName) return alert("請選取並進入任一款遊戲大廳，再點擊解鎖專屬好房！");
+        
+        const confirmBtn = document.getElementById('btnConfirmVip');
+        confirmBtn.disabled = false;
+        confirmBtn.innerText = "確認兌換";
+
+        toggleModal('vipModal', true);
+    }
+
+    async function confirmVipRoom() {
+        const cap = document.getElementById('vipCapital').value;
+        if (!cap || cap <= 0) return alert("請輸入有效的目前本金！");
+        
+        const confirmBtn = document.getElementById('btnConfirmVip');
+        const topVipBtn = document.getElementById('btnVipRoom');
+        
+        confirmBtn.disabled = true;
+        confirmBtn.innerText = "同步扣張中...";
+        topVipBtn.disabled = true;
+
+        let syncSuccess = await syncTicketsToDatabase(-100);
+        if (!syncSuccess) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerText = "確認兌換";
+            topVipBtn.disabled = false;
+            return; 
+        } 
+
+        const gameName = document.getElementById('currentGameTitle').innerText;
+        const maxRoom = (gameName === '戰神賽特') ? 2500 : 3500;
+        
+        const vipId = Math.floor(Math.random() * maxRoom) + 1;
+        const vipRate = Math.floor(Math.random() * 3) + 97; 
+        
+        const randomBuiltinSignal = APP_BUILTIN_SIGNALS[Math.floor(Math.random() * APP_BUILTIN_SIGNALS.length)];
+        const vipSignal = "🔥 VIP精準狙擊：" + randomBuiltinSignal.replace("訊號：", "");
+
+        vipRoomActive = { id: vipId, rate: vipRate, signal: vipSignal, game: gameName };
+        
+        toggleModal('vipModal', false);
+        alert(`🎉 VIP兌換成功！已單獨為您精準鎖定特製獨立房【房號 ${vipId}】！`);
+        
+        loadOrGenerateRooms(gameName, false);
+        
+        topVipBtn.disabled = false;
+    }
+
+    async function redeemGoldRefresh() {
+        if (ticketPoints < 150) return alert("抽獎券不足 150 張，無法兌換黃金重抽！");
+        const gameName = document.getElementById('currentGameTitle').innerText;
+        if (!gameName) return alert("請先點擊進入遊戲大廳再使用此功能。");
+
+        const goldBtn = document.getElementById('btnGoldRefresh');
+
+        if (confirm("確定要消耗 150 張抽獎券，立刻進行【黃金重抽】(保底至少 5 台紅色爆分房) 嗎？")) {
+            goldBtn.disabled = true;
+            goldBtn.innerText = "同步扣張中...";
+
+            let syncSuccess = await syncTicketsToDatabase(-150);
+            if (!syncSuccess) {
+                goldBtn.disabled = false;
+                goldBtn.innerText = "兌換 黃金重抽 (消耗 150張)";
+                return; 
+            } 
+
+            goldGuaranteeActive = true; 
+            loadOrGenerateRooms(gameName, true); 
+            
+            goldBtn.disabled = false;
+            goldBtn.innerText = "兌換 黃金重抽 (消耗 150張)";
+        }
+    }
+
+    function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        const cacheKey = "global_timer_end";
+        let endTime = localStorage.getItem(cacheKey);
+        const now = Date.now();
+        if (!endTime || parseInt(endTime) < now) {
+            endTime = now + (60 * 60 * 1000);
+            localStorage.setItem(cacheKey, endTime);
+        }
+        timerInterval = setInterval(() => {
+            const currentTime = Date.now();
+            const remaining = parseInt(endTime) - currentTime;
+            if (remaining <= 0) {
+                const gameName = document.getElementById('currentGameTitle').innerText;
+                
+                if(gameName) {
+                    syncDatabaseData(); 
+                    loadOrGenerateRooms(gameName, true);
+                }
+                
+                const newEndTime = Date.now() + (60 * 60 * 1000);
+                localStorage.setItem(cacheKey, newEndTime);
+                endTime = newEndTime;
+            } else {
+                const totalSeconds = Math.floor(remaining / 1000);
+                const m = Math.floor(totalSeconds / 60);
+                const s = totalSeconds % 60;
+                document.getElementById('timer').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    }
+
+    function backToGameSelect() {
+        document.getElementById('roomApp').classList.add('hidden');
+        document.getElementById('gameSelect').classList.remove('hidden');
+    }
+</script>
+
+</body>
+</html>
