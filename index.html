@@ -347,12 +347,12 @@
         "訊號 :6蛇+6同色寶石", "訊號：版面19顆以上大圖", "訊號：2消+2甲+2顆倍數球", "訊號：3消+3甲",
         "訊號：消大圖後10轉內連消3", "訊號：消眼睛後開自動100轉 進免出來追買", "訊號：平轉出百倍球 降注買一次",
         "訊號：消大圖+3倍以上倍數球", "訊號：單轉消開次大圖", "訊號：未開超過50後 出3+6+6大圖買",
-        "訊號：消除後出現N型大圖", "訊號：大圖出現頂樓圖案", "訊號：單轉吃到3顆倍數球", "訊號：女神倍數球 升級兩次",
+        "訊號：消除後出現N型大圖", "訊號快播：大圖出現頂樓圖案", "訊號：單轉吃到3顆倍數球", "訊號：女神倍數球 升級兩次",
         "訊號：消除後出現3*2大圖", "訊號：有消後 刀蛇弓眼顆數一樣", "訊號：連續2轉丟球沒吃 下次消除後買",
         "訊號：自動100轉進免後出來加注買", "訊號：7蛇+7同色寶石", "訊號：消蛇吃2倍球", "訊號：消蛇吃4倍球",
         "訊號：消刀+黃寶石", "訊號：消蛇+紫寶石", "訊號：消弓+黃寶石", "訊號：消眼+藍寶石",
         "訊號：平轉進免遊後降注追買", "訊號：切自動100轉沒進免 2 3 5塊各10轉後買", "訊號：消1次大圖+2次寶石",
-        "訊號：有消除的版面 右邊三排出兩顆倍數球", "訊號：單轉消9顆大圖"
+        "訊號：有消除的版面 右邊三排出連顆倍數球", "訊號：單轉消9顆大圖"
     ];
 
     let dbSignalsPool = []; 
@@ -499,7 +499,7 @@
         let savedData = localStorage.getItem(cacheKey);
         const maxRoom = (gameName === '戰神賽特') ? 1300 : 4212;
         
-        // 防爆快取機制：檢查已快取的房間，若有房號超過上限，強制清除快取以重新生成
+        // 強制檢查老舊快取是否包含不合規的房號，有的話激活強制重製
         if (savedData && !forceRefresh && !goldGuaranteeActive) {
             try {
                 const parsedRooms = JSON.parse(savedData);
@@ -524,13 +524,13 @@
             let targetRedCount = goldGuaranteeActive ? (Math.floor(Math.random() * 3) + 5) : (Math.floor(Math.random() * 5) + 1);
             let currentRedCount = 0;
 
-            // 1. 先產生 30 個不重複的隨機房號（此時不排序）
+            // Step 1: 優先產生不排序的 30 個不重複隨機房號
             while(roomIds.length < 30) {
                 let r = Math.floor(Math.random() * maxRoom) + 1;
                 if(!roomIds.includes(r)) roomIds.push(r);
             }
             
-            // 2. 依序隨機將紅色與普通勝率賦予這些房號
+            // Step 2: 隨機均勻地配發紅色高勝率或普通勝率給房間
             roomIds.forEach(id => {
                 let rate;
                 let redChance = goldGuaranteeActive ? 0.6 : 0.25;
@@ -550,7 +550,7 @@
                 tempRooms.push({ id, rate, signal });
             });
 
-            // 3. 【關鍵修正】把分配好勝率的房間，最後才依照房號從小到大進行排序！
+            // Step 3: 最後將配置完勝率的陣列，依照房號從小到大進行排序，使紅色房均勻分布
             tempRooms.sort((a, b) => a.id - b.id);
 
             localStorage.setItem(cacheKey, JSON.stringify(tempRooms));
