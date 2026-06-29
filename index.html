@@ -203,8 +203,8 @@
             <div style="margin-top:20px; font-size:0.85rem; color:#00ff7f; font-weight:bold;">Line：@yao88 小龍女</div>
             
             <div class="version-info">
-                <div class="version-item"><span>戰神賽特 2 版本號：</span><span class="version-val">1.1.2_4</span></div>
-                <div class="version-item"><span>戰神賽特 版本號：</span><span class="version-val">3.4.29_3</span></div>
+                <div class="version-item"><span>戰神賽特 2 版本號：</span><span class="version-val">v1.1.5</span></div>
+                <div class="version-item"><span>戰神賽特 版本號：</span><span class="version-val">3.4.31</span></div>
             </div>
         </div>
     </div>
@@ -344,9 +344,9 @@
     const APP_BUILTIN_SIGNALS = [
         "訊號：4角落 3角同大圖", "訊號：4消+3倍以上倍數", "訊號：版面7眼沒消", "訊號：版面7眼有消",
         "訊號：單轉2消後出7蛇", "訊號：單轉5消直接買", "訊號：2消後版面2+2大圖", "訊號：單轉回分超過注額20倍",
-        "訊號 :6蛇+6同色寶石", "訊號：單消後版面19顆以上大圖", "訊號：2消+2甲+2顆倍數球", "訊號：3消+3甲",
+        "訊號 :6蛇+6同色寶石", "訊號：版面19顆以上大圖", "訊號：2消+2甲+2顆倍數球", "訊號：3消+3甲",
         "訊號：消大圖後10轉內連消3", "訊號：消眼睛後開自動100轉 進免出來追買", "訊號：平轉出百倍球 降注買一次",
-        "訊號：消大圖+3倍以上倍數球", "訊號：單轉消開兩次大圖", "訊號：未開超過50後 出3+6+6大圖買",
+        "訊號：消大圖+3倍以上倍數球", "訊號：單轉消開次大圖", "訊號：未開超過50後 出3+6+6大圖買",
         "訊號：消除後出現N型大圖", "訊號：大圖出現頂樓圖案", "訊號：單轉吃到3顆倍數球", "訊號：女神倍數球 升級兩次",
         "訊號：消除後出現3*2大圖", "訊號：有消後 刀蛇弓眼顆數一樣", "訊號：連續2轉丟球沒吃 下次消除後買",
         "訊號：自動100轉進免後出來加注買", "訊號：7蛇+7同色寶石", "訊號：消蛇吃2倍球", "訊號：消蛇吃4倍球",
@@ -481,8 +481,6 @@
         document.getElementById('gameSelect').classList.remove('hidden');
     }
 
-    style = document.createElement('style');
-
     function goToRooms(gameName) {
         vipRoomActive = null;
         
@@ -498,14 +496,27 @@
 
     function loadOrGenerateRooms(gameName, forceRefresh = false) {
         const cacheKey = `rooms_${currentUserId}_${gameName}`;
-        const savedData = localStorage.getItem(cacheKey);
+        let savedData = localStorage.getItem(cacheKey);
+        const maxRoom = (gameName === '戰神賽特') ? 1300 : 4212;
+        
+        // 防爆快取機制：檢查已快取的房間，若有房號超過上限，強制清除快取以重新生成
+        if (savedData && !forceRefresh && !goldGuaranteeActive) {
+            try {
+                const parsedRooms = JSON.parse(savedData);
+                const hasInvalidRoom = parsedRooms.some(room => room.id > maxRoom);
+                if (hasInvalidRoom) {
+                    forceRefresh = true; 
+                }
+            } catch (e) {
+                forceRefresh = true;
+            }
+        }
         
         if (savedData && !forceRefresh && !goldGuaranteeActive) {
             renderRooms(JSON.parse(savedData));
         } else {
-            const newRooms = [];
+            const tempRooms = [];
             const roomIds = [];
-            const maxRoom = (gameName === '戰神賽特') ? 2500 : 3500;
             
             const shuffledSignals = [...APP_BUILTIN_SIGNALS].sort(() => 0.5 - Math.random());
             let signalIndex = 0;
@@ -513,15 +524,17 @@
             let targetRedCount = goldGuaranteeActive ? (Math.floor(Math.random() * 3) + 5) : (Math.floor(Math.random() * 5) + 1);
             let currentRedCount = 0;
 
+            // 1. 先產生 30 個不重複的隨機房號（此時不排序）
             while(roomIds.length < 30) {
                 let r = Math.floor(Math.random() * maxRoom) + 1;
                 if(!roomIds.includes(r)) roomIds.push(r);
             }
             
-            roomIds.sort((a, b) => a - b).forEach(id => {
+            // 2. 依序隨機將紅色與普通勝率賦予這些房號
+            roomIds.forEach(id => {
                 let rate;
                 let redChance = goldGuaranteeActive ? 0.6 : 0.25;
-                if (currentRedCount < targetRedCount && (Math.random() < redChance || currentRedCount + (30 - newRooms.length) <= targetRedCount)) {
+                if (currentRedCount < targetRedCount && (Math.random() < redChance || currentRedCount + (30 - tempRooms.length) <= targetRedCount)) {
                     rate = Math.floor(Math.random() * 7) + 92; 
                     currentRedCount++;
                 } else { 
@@ -534,10 +547,14 @@
                     signalIndex++;
                 }
                 
-                newRooms.push({ id, rate, signal });
+                tempRooms.push({ id, rate, signal });
             });
-            localStorage.setItem(cacheKey, JSON.stringify(newRooms));
-            renderRooms(newRooms);
+
+            // 3. 【關鍵修正】把分配好勝率的房間，最後才依照房號從小到大進行排序！
+            tempRooms.sort((a, b) => a.id - b.id);
+
+            localStorage.setItem(cacheKey, JSON.stringify(tempRooms));
+            renderRooms(tempRooms);
             
             if (goldGuaranteeActive) {
                 goldGuaranteeActive = false;
@@ -718,7 +735,7 @@
         } 
 
         const gameName = document.getElementById('currentGameTitle').innerText;
-        const maxRoom = (gameName === '戰神賽特') ? 2500 : 3500;
+        const maxRoom = (gameName === '戰神賽特') ? 1300 : 4212;
         
         const vipId = Math.floor(Math.random() * maxRoom) + 1;
         const vipRate = Math.floor(Math.random() * 3) + 97; 
