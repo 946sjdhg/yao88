@@ -482,6 +482,24 @@
             .notice-line { width:auto; font-size:.74rem; }
         }
 
+
+        /* 基本防誤觸／防查看：手機與桌面皆適用 */
+        html, body, img, .game-card, .room-item, .dashboard-hero, .side-box {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        img {
+            -webkit-user-drag: none;
+            user-drag: none;
+            pointer-events: none;
+        }
+        input, textarea, select, button {
+            -webkit-user-select: auto;
+            user-select: auto;
+            -webkit-touch-callout: default;
+        }
+
 </style>
 </head>
 <body>
@@ -1387,6 +1405,60 @@
             document.body.scrollTop = 0;
         });
     }
+
+    // 基本防查看與防誤觸：僅能提高操作門檻，無法從瀏覽器層面完全禁止開發者工具。
+    (function enableBasicPageProtection() {
+        document.addEventListener('contextmenu', function(event) {
+            event.preventDefault();
+        }, { capture: true });
+
+        document.addEventListener('dragstart', function(event) {
+            event.preventDefault();
+        }, { capture: true });
+
+        document.addEventListener('selectstart', function(event) {
+            const tag = (event.target && event.target.tagName || '').toLowerCase();
+            if (!['input', 'textarea', 'select'].includes(tag)) {
+                event.preventDefault();
+            }
+        }, { capture: true });
+
+        document.addEventListener('keydown', function(event) {
+            const key = String(event.key || '').toLowerCase();
+            const blocked =
+                key === 'f12' ||
+                (event.ctrlKey && event.shiftKey && ['i', 'j', 'c'].includes(key)) ||
+                (event.ctrlKey && ['u', 's'].includes(key)) ||
+                (event.metaKey && event.altKey && ['i', 'j', 'c'].includes(key));
+
+            if (blocked) {
+                event.preventDefault();
+                event.stopPropagation();
+                return false;
+            }
+        }, { capture: true });
+
+        // 手機長按選單防護
+        let touchTimer = null;
+        document.addEventListener('touchstart', function(event) {
+            const tag = (event.target && event.target.tagName || '').toLowerCase();
+            if (['input', 'textarea', 'select', 'button'].includes(tag)) return;
+            touchTimer = setTimeout(() => {
+                if (navigator.vibrate) navigator.vibrate(10);
+            }, 550);
+        }, { passive: true });
+
+        document.addEventListener('touchend', function() {
+            if (touchTimer) clearTimeout(touchTimer);
+            touchTimer = null;
+        }, { passive: true });
+
+        document.addEventListener('touchcancel', function() {
+            if (touchTimer) clearTimeout(touchTimer);
+            touchTimer = null;
+        }, { passive: true });
+    })();
+
 </script>
 
 </body>
