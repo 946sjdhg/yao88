@@ -881,10 +881,10 @@
         const userId = document.getElementById('passInput').value.trim();
         if (!userId) return alert("請輸入帳號");
         const btn = document.getElementById("loginBtn");
-        btn.innerText = "高速授權驗證中...";
+        btn.innerText = "系統確認中，請稍後。";
         btn.disabled = true;
         try {
-            const result = await fetchWithTimeout(`${API_URL}?action=login&id=${encodeURIComponent(userId)}`, {}, 4000);
+            const result = await fetchWithTimeout(`${API_URL}?action=login&id=${encodeURIComponent(userId)}`, {}, 15000, 3);
             if (result.success) {
                 currentUserId = userId;
                 userRefreshQuota = parseInt(result.refreshLimit) || 0; 
@@ -899,7 +899,7 @@
                 alert(result.msg || "授權驗證失敗，請重新確認帳號或聯繫代理。");
             }
         } catch (e) { 
-            alert("伺服器回應超時，請檢查網路後重新點擊確認授權。");
+            alert("系統目前回應較慢，請稍後再試。");
         } finally {
             btn.innerText = "確認授權";
             btn.disabled = false;
