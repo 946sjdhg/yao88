@@ -809,15 +809,16 @@
 
         try {
             const data = await fetchWithTimeout(
-                `${API_URL}?action=getSignalsAndRanks&game=${encodeURIComponent(gameConfig.signalSheetName || activeGame)}`,
-                {},
-                7000,
-                3
+                `${API_URL}?action=getSignalsAndRanks&game=${encodeURIComponent(gameConfig.signalSheetName || activeGame)}&_=${Date.now()}`,
+                { cache: 'no-store' },
+                10000,
+                2
             );
 
             dbSignalsPool = (data.signals && data.signals.length > 0)
                 ? data.signals
                 : fallbackSignals;
+            saveSignalPoolCache(activeGame, dbSignalsPool);
 
             const shuffled = [...dbSignalsPool].sort(() => 0.5 - Math.random());
             const selected = shuffled.slice(0, 5);
@@ -887,7 +888,7 @@
             const result = await fetchWithTimeout(`${API_URL}?action=login&id=${encodeURIComponent(userId)}`, {}, 15000, 3);
             if (result.success) {
                 currentUserId = userId;
-                userRefreshQuota = parseInt(result.refreshLimit) || 0; 
+                userRefreshQuota = readRefreshQuota(result, userRefreshQuota); 
                 ticketPoints = parseInt(result.ticketBalance) || 0;
                 if (result.lastSpinTime) {
                     localStorage.setItem(`last_spin_time_${currentUserId}`, String(result.lastSpinTime));
@@ -933,6 +934,24 @@
 
     function getSuggestionCacheKey(gameName) {
         return `suggestions_v4_${currentUserId}_${gameName}`;
+    }
+    function getSignalPoolCacheKey(gameName) {
+        return `signal_pool_v1_${gameName}`;
+    }
+
+    function getCachedSignalPool(gameName) {
+        try {
+            const cached = JSON.parse(localStorage.getItem(getSignalPoolCacheKey(gameName)) || "[]");
+            return Array.isArray(cached) && cached.length ? cached : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function saveSignalPoolCache(gameName, signals) {
+        if (Array.isArray(signals) && signals.length) {
+            localStorage.setItem(getSignalPoolCacheKey(gameName), JSON.stringify(signals));
+        }
     }
 
     function isGameCacheValid(gameName) {
@@ -989,16 +1008,26 @@
         }
         
         if (isGameCacheValid(gameName)) {
-            // 一小時內再次進入同一款遊戲，沿用原本房間與建議訊號。
+            // 一小時內再次進入同一款遊戲，直接顯示固定資料。
             renderCachedSuggestions(gameName);
             loadOrGenerateRooms(gameName, false);
         } else {
-            // 首次進入或已滿一小時才重新同步並產生。
-            await syncDatabaseData();
+            // 首次進入或一小時到期：先立即顯示本機快取／備援資料。
+            const cachedPool = getCachedSignalPool(gameName);
+            dbSignalsPool = cachedPool.length ? cachedPool : [...getFallbackSignals(gameName)];
+
+            const instantSuggestions = [...dbSignalsPool].sort(() => 0.5 - Math.random()).slice(0, 5);
+            saveSuggestionCache(gameName, instantSuggestions);
+            renderCachedSuggestions(gameName);
             loadOrGenerateRooms(gameName, true);
             localStorage.setItem(getRoomCacheTimeKey(gameName), String(Date.now()));
-            startTimer(gameName);
-            localStorage.setItem(getRoomCacheTimeKey(gameName), String(Date.now()));
+
+            // Google 資料在背景同步，不阻塞玩家進入。
+            syncDatabaseData().then(() => {
+                saveSignalPoolCache(gameName, dbSignalsPool);
+            }).catch(error => {
+                console.warn("背景訊號同步失敗，沿用目前資料：", error);
+            });
         }
 
         updateQuotaDisplay();
@@ -1111,7 +1140,7 @@
         const msg = document.getElementById('topUpMsg');
         if (isRefreshing) {
             btn.disabled = true;
-            btn.innerText = "智能刷新中...";
+            btn.innerText = "資料更新中...";
             msg.innerHTML = "";
         } else if (userRefreshQuota <= 0) {
             btn.disabled = true;
@@ -1122,6 +1151,50 @@
             btn.innerText = "立即手動刷新";
             msg.innerHTML = "";
         }
+    }
+
+
+    function readRefreshQuota(result, fallbackValue) {
+        if (!result || typeof result !== 'object') return fallbackValue;
+
+        const candidates = [
+            result.refreshLimit,
+            result.refreshCount,
+            result.remainingRefresh,
+            result.remaining,
+            result.quota
+        ];
+
+        for (const value of candidates) {
+            if (value !== undefined && value !== null && value !== '') {
+                const parsed = Number(value);
+                if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+            }
+        }
+        return fallbackValue;
+    }
+
+    async function syncRefreshQuotaFromServer(fallbackValue) {
+        try {
+            const state = await fetchWithTimeout(
+                `${API_URL}?action=login&id=${encodeURIComponent(currentUserId)}&_=${Date.now()}`,
+                { cache: 'no-store' },
+                10000,
+                1
+            );
+
+            if (state && state.success) {
+                userRefreshQuota = readRefreshQuota(state, fallbackValue);
+                updateQuotaDisplay();
+                return userRefreshQuota;
+            }
+        } catch (error) {
+            console.warn("刷新次數重新同步失敗，暫時沿用本機數值：", error);
+        }
+
+        userRefreshQuota = fallbackValue;
+        updateQuotaDisplay();
+        return userRefreshQuota;
     }
 
     async function manualRefresh() {
@@ -1141,21 +1214,36 @@
         try {
             // 先由後端確認扣除一次，成功後才更新畫面，避免連點重複扣除。
             const result = await fetchWithTimeout(
-                `${API_URL}?action=refresh&id=${encodeURIComponent(currentUserId)}`,
+                `${API_URL}?action=refresh&id=${encodeURIComponent(currentUserId)}&_=${Date.now()}`,
                 {},
-                10000,
-                3
+                12000,
+                2
             );
 
             if (!result || !result.success) {
                 throw new Error((result && result.msg) || "刷新同步失敗");
             }
 
-            userRefreshQuota = Number(result.refreshLimit || 0);
+            // 扣除成功後立即更新次數與房間，不再等待其他 Google 請求。
+            const expectedQuota = Math.max(0, userRefreshQuota - 1);
+            userRefreshQuota = readRefreshQuota(result, expectedQuota);
+            updateQuotaDisplay();
 
-            // 取得目前遊戲完整訊號池後，再產生新房間。
-            await syncDatabaseData();
+            const cachedPool = getCachedSignalPool(gameName);
+            if (!dbSignalsPool.length) {
+                dbSignalsPool = cachedPool.length ? cachedPool : [...getFallbackSignals(gameName)];
+            }
             loadOrGenerateRooms(gameName, true);
+            localStorage.setItem(getRoomCacheTimeKey(gameName), String(Date.now()));
+            startTimer(gameName);
+
+            // 剩餘次數確認與最新訊號改為背景同時執行。
+            Promise.allSettled([
+                syncRefreshQuotaFromServer(userRefreshQuota),
+                syncDatabaseData()
+            ]).then(() => {
+                saveSignalPoolCache(gameName, dbSignalsPool);
+            });
         } catch (error) {
             console.error("刷新失敗：", error);
             alert(`刷新失敗：${error.message || "伺服器暫時無回應，請稍後再試"}`);
