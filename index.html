@@ -918,6 +918,7 @@
 
             ticketPoints = Number(result.ticketBalance || 0);
             updateTicketDOM();
+            if (currentUserId) saveLoginSession(currentUserId);
             clearTxId(operation);
             return { success: true, result };
         } catch (error) {
@@ -930,28 +931,105 @@
         }
     }
 
+
+    const LOGIN_SESSION_TTL = 10 * 60 * 1000;
+
+    function saveLoginSession(userId) {
+        localStorage.setItem("fast_login_session", JSON.stringify({
+            userId,
+            refreshQuota: userRefreshQuota,
+            ticketPoints,
+            savedAt: Date.now()
+        }));
+    }
+
+    function getFastLoginSession(userId) {
+        try {
+            const session = JSON.parse(localStorage.getItem("fast_login_session") || "null");
+            if (!session || session.userId !== userId) return null;
+            if (Date.now() - Number(session.savedAt || 0) > LOGIN_SESSION_TTL) return null;
+            return session;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function clearFastLoginSession() {
+        localStorage.removeItem("fast_login_session");
+    }
+
+    async function backgroundVerifyLogin(userId) {
+        try {
+            const result = await fetchWithTimeout(
+                `${API_URL}?action=login&id=${encodeURIComponent(userId)}&_=${Date.now()}`,
+                { cache: 'no-store' },
+                12000,
+                1
+            );
+            if (!result || !result.success) {
+                clearFastLoginSession();
+                return;
+            }
+            userRefreshQuota = readRefreshQuota(result, userRefreshQuota);
+            ticketPoints = parseInt(result.ticketBalance) || ticketPoints;
+            if (result.lastSpinTime) {
+                localStorage.setItem(`last_spin_time_${currentUserId}`, String(result.lastSpinTime));
+            }
+            updateTicketDOM();
+            updateQuotaDisplay();
+            saveLoginSession(userId);
+        } catch (e) {
+            console.warn("背景登入確認暫時失敗：", e);
+        }
+    }
+
     async function checkPassword() {
         const userId = document.getElementById('passInput').value.trim();
         if (!userId) return alert("請輸入帳號");
+
         const btn = document.getElementById("loginBtn");
-        btn.innerText = "系統確認中，請稍後。";
         btn.disabled = true;
+
+        const cachedSession = getFastLoginSession(userId);
+        if (cachedSession) {
+            currentUserId = userId;
+            userRefreshQuota = Number(cachedSession.refreshQuota || 0);
+            ticketPoints = Number(cachedSession.ticketPoints || 0);
+            updateTicketDOM();
+            showGameSelect();
+            checkWheelStatus();
+            btn.innerText = "確認授權";
+            btn.disabled = false;
+            backgroundVerifyLogin(userId);
+            return;
+        }
+
+        btn.innerText = "系統確認中，請稍後。";
+
         try {
-            const result = await fetchWithTimeout(`${API_URL}?action=login&id=${encodeURIComponent(userId)}`, {}, 15000, 3);
-            if (result.success) {
+            const result = await fetchWithTimeout(
+                `${API_URL}?action=login&id=${encodeURIComponent(userId)}&_=${Date.now()}`,
+                { cache: 'no-store' },
+                15000,
+                2
+            );
+
+            if (result && result.success) {
                 currentUserId = userId;
-                userRefreshQuota = readRefreshQuota(result, userRefreshQuota); 
+                userRefreshQuota = readRefreshQuota(result, userRefreshQuota);
                 ticketPoints = parseInt(result.ticketBalance) || 0;
                 if (result.lastSpinTime) {
                     localStorage.setItem(`last_spin_time_${currentUserId}`, String(result.lastSpinTime));
                 }
                 updateTicketDOM();
+                saveLoginSession(userId);
                 showGameSelect();
-                checkWheelStatus(); 
-            } else { 
-                alert(result.msg || "授權驗證失敗，請重新確認帳號或聯繫代理。");
+                checkWheelStatus();
+            } else {
+                clearFastLoginSession();
+                alert((result && result.msg) || "授權驗證失敗，請重新確認帳號或聯繫代理。");
             }
-        } catch (e) { 
+        } catch (e) {
             alert("系統目前回應較慢，請稍後再試。");
         } finally {
             btn.innerText = "確認授權";
@@ -1283,6 +1361,7 @@
             const expectedQuota = Math.max(0, userRefreshQuota - 1);
             userRefreshQuota = readRefreshQuota(result, expectedQuota);
             updateQuotaDisplay();
+            if (currentUserId) saveLoginSession(currentUserId);
 
             const cachedPool = getCachedSignalPool(gameName);
             if (!dbSignalsPool.length) {
