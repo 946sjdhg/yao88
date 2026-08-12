@@ -198,7 +198,7 @@
         .rank-num { font-weight: bold; color: var(--accent-blue); width: 30px; }
 
         .wheel-container { position: relative; width: 220px; height: 220px; margin: 0 auto 15px auto; }
-        .wheel { width: 100%; height: 100%; border-radius: 50%; border: 5px solid var(--primary-gold); background: conic-gradient(#475569 0deg 60deg, #ef4444 60deg 120deg, #22c55e 120deg 180deg, #3b82f6 180deg 240deg, #a855f7 240deg 300deg, #f97316 300deg 360deg); transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1); position: relative; overflow: hidden; }
+        .wheel { width: 100%; height: 100%; border-radius: 50%; border: 5px solid var(--primary-gold); background: conic-gradient(#ef4444 0deg 72deg, #22c55e 72deg 144deg, #3b82f6 144deg 216deg, #a855f7 216deg 288deg, #f97316 288deg 360deg); transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1); position: relative; overflow: hidden; }
         .wheel-pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 25px solid var(--primary-gold); z-index: 10; }
         .wheel-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 65px; height: 65px; background: var(--primary-gold); border-radius: 50%; border: none; font-weight: bold; color: #000; cursor: pointer; z-index: 11; font-size: 0.8rem; box-shadow: 0 0 10px rgba(0,0,0,0.5); text-align: center; line-height: 1.2; }
         .wheel-btn:disabled { background: #6b7280; color: #d1d5db; cursor: not-allowed; font-size: 0.7rem; }
@@ -593,12 +593,11 @@
                 <div class="wheel-container">
                     <div class="wheel-pointer"></div>
                     <div class="wheel" id="wheelDisk">
-                        <div class="wheel-text" style="transform: rotate(30deg) translateY(-65px);">0張(灰色)</div>
-                        <div class="wheel-text" style="transform: rotate(90deg) translateY(-65px);">5張(紅色)</div>
-                        <div class="wheel-text" style="transform: rotate(150deg) translateY(-65px);">10張(綠色)</div>
-                        <div class="wheel-text" style="transform: rotate(210deg) translateY(-65px);">30張(藍色)</div>
-                        <div class="wheel-text" style="transform: rotate(270deg) translateY(-65px);">50張(紫色)</div>
-                        <div class="wheel-text" style="transform: rotate(330deg) translateY(-65px);">100張(橘色)</div>
+                        <div class="wheel-text" style="transform: rotate(36deg) translateY(-65px);">10張(紅色)</div>
+                        <div class="wheel-text" style="transform: rotate(108deg) translateY(-65px);">30張(綠色)</div>
+                        <div class="wheel-text" style="transform: rotate(180deg) translateY(-65px);">50張(藍色)</div>
+                        <div class="wheel-text" style="transform: rotate(252deg) translateY(-65px);">100張(紫色)</div>
+                        <div class="wheel-text" style="transform: rotate(324deg) translateY(-65px);">200張(橘色)</div>
                     </div>
                     <button class="wheel-btn" id="spinBtn" onclick="spinWheel()">抽獎</button>
                 </div>
@@ -634,12 +633,11 @@
         
         <div style="text-align: left; font-weight: bold; margin-bottom: 5px;">🎨 輪盤全隨機配置：</div>
         <ul class="help-list">
-            <li><span class="color-dot" style="background: #475569;"></span>黑色區：獲得 0 張抽獎券</li>
-            <li><span class="color-dot" style="background: #ef4444;"></span>紅色區：獲得 5 張抽獎券</li>
-            <li><span class="color-dot" style="background: #22c55e;"></span>綠色區：獲得 10 張抽獎券</li>
-            <li><span class="color-dot" style="background: #3b82f6;"></span>藍色區：獲得 30 張抽獎券</li>
-            <li><span class="color-dot" style="background: #a855f7;"></span>紫色區：獲得 50 張抽獎券</li>
-            <li><span class="color-dot" style="background: #f97316;"></span>橘色區：獲得 100 張抽獎券</li>
+            <li><span class="color-dot" style="background: #ef4444;"></span>紅色區：獲得 10 張抽獎券</li>
+            <li><span class="color-dot" style="background: #22c55e;"></span>綠色區：獲得 30 張抽獎券</li>
+            <li><span class="color-dot" style="background: #3b82f6;"></span>藍色區：獲得 50 張抽獎券</li>
+            <li><span class="color-dot" style="background: #a855f7;"></span>紫色區：獲得 100 張抽獎券</li>
+            <li><span class="color-dot" style="background: #f97316;"></span>橘色區：獲得 200 張抽獎券</li>
         </ul>
         
         <div style="color: var(--danger); text-align: left; font-weight: bold; font-size: 0.9rem; margin-bottom: 15px;">
@@ -1410,7 +1408,7 @@
     }
 
     function getWeightedPrize() {
-        const weights = [40, 25, 18, 11, 5, 1];
+        const weights = [8, 30, 32, 25, 5];
         const totalWeight = weights.reduce((a, b) => a + b, 0);
         let random = Math.floor(Math.random() * totalWeight);
         for (let i = 0; i < weights.length; i++) {
@@ -1446,7 +1444,7 @@
 
         const prizeIdx = getWeightedPrize();
         const baseRotations = 6 * 360;
-        const prizeAngles = [30, 90, 150, 210, 270, 330];
+        const prizeAngles = [36, 108, 180, 252, 324];
         const finalAngle = baseRotations + (360 - prizeAngles[prizeIdx]);
 
         // 每次先清除 transition，再從目前位置重新起轉，避免第二次動畫異常。
@@ -1457,30 +1455,19 @@
         wheel.style.transform = `rotate(${finalAngle}deg)`;
 
         setTimeout(async () => {
-            const ticketsAwarded = [0, 5, 10, 30, 50, 100];
+            const ticketsAwarded = [10, 30, 50, 100, 200];
             const prizeCount = ticketsAwarded[prizeIdx];
             const nowTimestamp = Date.now();
 
             try {
-                if (prizeCount === 0) {
-                    // 0 張也同步抽獎時間，避免更換裝置或清除快取後重複抽。
-                    const syncResult = await syncTicketsToDatabase(0, nowTimestamp.toString(), "spin");
-                    if (!syncResult.success) throw new Error(syncResult.message);
+                msgDom.innerText = "獎券同步中...";
+                const syncResult = await syncTicketsToDatabase(prizeCount, nowTimestamp.toString(), "spin");
+                if (!syncResult.success) throw new Error(syncResult.message);
 
-                    localStorage.setItem(`last_spin_time_${currentUserId}`, String(nowTimestamp));
-                    msgDom.innerText = "殘念！這次是 0 張，明天再接再厲！";
-                    msgDom.style.color = "var(--danger)";
-                    alert("本次抽獎結果：0 張抽獎券\n24 小時後可再次抽獎。");
-                } else {
-                    msgDom.innerText = "獎券同步中...";
-                    const syncResult = await syncTicketsToDatabase(prizeCount, nowTimestamp.toString(), "spin");
-                    if (!syncResult.success) throw new Error(syncResult.message);
-
-                    localStorage.setItem(`last_spin_time_${currentUserId}`, String(nowTimestamp));
-                    msgDom.innerText = `🎉 成功抽中 ${prizeCount} 張抽獎券！`;
-                    msgDom.style.color = "var(--success)";
-                    alert(`🎉 恭喜抽中 ${prizeCount} 張抽獎券！\n24 小時後可再次抽獎。`);
-                }
+                localStorage.setItem(`last_spin_time_${currentUserId}`, String(nowTimestamp));
+                msgDom.innerText = `🎉 成功抽中 ${prizeCount} 張抽獎券！`;
+                msgDom.style.color = "var(--success)";
+                alert(`🎉 恭喜抽中 ${prizeCount} 張抽獎券！\n24 小時後可再次抽獎。`);
             } catch (error) {
                 console.error("抽獎失敗：", error);
                 msgDom.innerText = "系統正在確認抽獎結果，請稍後再按一次。";
