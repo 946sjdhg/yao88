@@ -520,7 +520,7 @@
             <p class="auth-subtitle">整合五款遊戲的即時勝率、訊號分析與智能房間篩選。</p>
             <div class="input-shell"><input type="text" id="passInput" placeholder="輸入您的授權帳號"></div>
             <button id="loginBtn" class="primary-action" onclick="checkPassword()">啟動智能授權</button>
-            <div class="agent-contact"><span class="agent-light"></span><span>代理 Line</span><strong>@yao88 小龍女</strong></div>
+            <div class="agent-contact"><span class="agent-light"></span><span>代理 Line</span><strong>@yao88 龍女</strong></div>
             
             <div class="version-info">
                 <div class="version-item" style="display:block;line-height:1.7;text-align:left;">
@@ -541,7 +541,7 @@
             <div class="system-status"><span class="status-dot"></span>五款遊戲模組已就緒</div>
         </div>
         <div id="gameGrid" class="game-grid"></div>
-        <div class="agent-contact centered"><span class="agent-light"></span><span>代理 Line</span><strong>@yao88 小龍女</strong></div>
+        <div class="agent-contact centered"><span class="agent-light"></span><span>代理 Line</span><strong>@yao88 龍女</strong></div>
     </div>
 
     <div id="roomApp" class="hidden">
@@ -576,7 +576,7 @@
 
             <div class="room-section-head"><h3>智能推薦房間</h3><span>紅色代表高機率訊號房</span></div>
             <div id="roomList" class="room-grid"></div>
-            <div class="agent-contact centered room-contact"><span class="agent-light"></span><span>有問題歡迎聯繫代理</span><strong>@yao88 小龍女</strong></div>
+            <div class="agent-contact centered room-contact"><span class="agent-light"></span><span>有問題歡迎聯繫代理</span><strong>@yao88 龍女</strong></div>
         </div>
 
         <div class="sidebar">
@@ -854,26 +854,78 @@
     function updateTicketDOM() { document.getElementById('ticketBalance').innerText = ticketPoints; }
     function toggleModal(id, open) { document.getElementById(id).classList.toggle('hidden', !open); }
     
-    async function syncTicketsToDatabase(changeAmount, spinTimeStr = "") {
+
+    function txStorageKey(operation) {
+        return `pending_tx_${currentUserId}_${operation}`;
+    }
+
+    function createTxId(operation) {
+        const randomPart = (window.crypto && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        return `${operation}_${currentUserId}_${randomPart}`;
+    }
+
+    function getOrCreateTxId(operation) {
+        const key = txStorageKey(operation);
+        let txId = localStorage.getItem(key);
+        if (!txId) {
+            txId = createTxId(operation);
+            localStorage.setItem(key, txId);
+        }
+        return txId;
+    }
+
+    function clearTxId(operation) {
+        localStorage.removeItem(txStorageKey(operation));
+    }
+
+    async function safeTransactionFetch(url, timeout = 20000, retries = 3) {
+        let lastError = null;
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                return await fetchWithTimeout(
+                    `${url}${url.includes('?') ? '&' : '?'}_=${Date.now()}`,
+                    { cache: 'no-store' },
+                    timeout,
+                    1
+                );
+            } catch (error) {
+                lastError = error;
+                console.warn(`交易確認第 ${attempt} 次未完成：`, error);
+                if (attempt < retries) {
+                    await new Promise(resolve => setTimeout(resolve, 1200 * attempt));
+                }
+            }
+        }
+        throw lastError || new Error("系統確認逾時");
+    }
+
+    async function syncTicketsToDatabase(changeAmount, spinTimeStr = "", operation = "tickets") {
+        const txId = getOrCreateTxId(operation);
         try {
-            let url = `${API_URL}?action=updateTickets&id=${encodeURIComponent(currentUserId)}&ticketChange=${encodeURIComponent(changeAmount)}`;
+            let url = `${API_URL}?action=updateTickets&id=${encodeURIComponent(currentUserId)}&ticketChange=${encodeURIComponent(changeAmount)}&txId=${encodeURIComponent(txId)}`;
             if (spinTimeStr) url += `&spinTime=${encodeURIComponent(spinTimeStr)}`;
 
-            // Apps Script 第一次喚醒可能較慢，抽獎同步使用較長等待時間。
-            const result = await fetchWithTimeout(url, {}, 12000, 3);
+            const result = await safeTransactionFetch(url, 20000, 3);
 
             if (!result || !result.success) {
-                throw new Error((result && result.msg) || "後端沒有回傳成功結果");
+                const message = (result && result.msg) || "後端沒有回傳成功結果";
+                // 明確的業務失敗可清除交易碼；網路不確定狀態則由 catch 保留。
+                clearTxId(operation);
+                throw new Error(message);
             }
 
             ticketPoints = Number(result.ticketBalance || 0);
             updateTicketDOM();
-            return { success: true };
+            clearTxId(operation);
+            return { success: true, result };
         } catch (error) {
-            console.error("抽獎券同步錯誤：", error);
+            console.error("抽獎券同步確認中：", error);
             return {
                 success: false,
-                message: error.message || "雲端連線失敗，請稍後重試"
+                uncertain: /abort|network|fetch|timeout|網路|逾時/i.test(String(error && error.message || error)),
+                message: error.message || "系統確認中，請稍後再試"
             };
         }
     }
@@ -1213,16 +1265,19 @@
 
         try {
             // 先由後端確認扣除一次，成功後才更新畫面，避免連點重複扣除。
-            const result = await fetchWithTimeout(
-                `${API_URL}?action=refresh&id=${encodeURIComponent(currentUserId)}&_=${Date.now()}`,
-                {},
-                12000,
-                2
+            const refreshTxId = getOrCreateTxId("refresh");
+            const result = await safeTransactionFetch(
+                `${API_URL}?action=refresh&id=${encodeURIComponent(currentUserId)}&txId=${encodeURIComponent(refreshTxId)}`,
+                20000,
+                3
             );
 
             if (!result || !result.success) {
+                clearTxId("refresh");
                 throw new Error((result && result.msg) || "刷新同步失敗");
             }
+
+            clearTxId("refresh");
 
             // 扣除成功後立即更新次數與房間，不再等待其他 Google 請求。
             const expectedQuota = Math.max(0, userRefreshQuota - 1);
@@ -1245,8 +1300,8 @@
                 saveSignalPoolCache(gameName, dbSignalsPool);
             });
         } catch (error) {
-            console.error("刷新失敗：", error);
-            alert(`刷新失敗：${error.message || "伺服器暫時無回應，請稍後再試"}`);
+            console.error("刷新確認未完成：", error);
+            alert("系統正在確認本次刷新結果，請稍後再按一次。系統會沿用同一筆交易，不會重複扣除刷新次數。");
         } finally {
             isRefreshing = false;
             updateQuotaDisplay();
@@ -1330,7 +1385,7 @@
             try {
                 if (prizeCount === 0) {
                     // 0 張也同步抽獎時間，避免更換裝置或清除快取後重複抽。
-                    const syncResult = await syncTicketsToDatabase(0, nowTimestamp.toString());
+                    const syncResult = await syncTicketsToDatabase(0, nowTimestamp.toString(), "spin");
                     if (!syncResult.success) throw new Error(syncResult.message);
 
                     localStorage.setItem(`last_spin_time_${currentUserId}`, String(nowTimestamp));
@@ -1339,7 +1394,7 @@
                     alert("本次抽獎結果：0 張抽獎券\n24 小時後可再次抽獎。");
                 } else {
                     msgDom.innerText = "獎券同步中...";
-                    const syncResult = await syncTicketsToDatabase(prizeCount, nowTimestamp.toString());
+                    const syncResult = await syncTicketsToDatabase(prizeCount, nowTimestamp.toString(), "spin");
                     if (!syncResult.success) throw new Error(syncResult.message);
 
                     localStorage.setItem(`last_spin_time_${currentUserId}`, String(nowTimestamp));
@@ -1349,11 +1404,11 @@
                 }
             } catch (error) {
                 console.error("抽獎失敗：", error);
-                msgDom.innerText = `抽獎同步失敗：${error.message || "請稍後重試"}`;
-                msgDom.style.color = "var(--danger)";
-                // 同步失敗不寫入 24 小時限制，讓玩家可以重新抽。
+                msgDom.innerText = "系統正在確認抽獎結果，請稍後再按一次。";
+                msgDom.style.color = "var(--primary-gold)";
+                // 保留同一筆交易識別碼，重新操作時後端不會重複加獎券。
                 btn.disabled = false;
-                btn.innerText = "重新抽獎";
+                btn.innerText = "確認抽獎結果";
             } finally {
                 isSpinning = false;
                 if (localStorage.getItem(`last_spin_time_${currentUserId}`)) {
@@ -1383,12 +1438,12 @@
         const topVipBtn = document.getElementById('btnVipRoom');
         
         confirmBtn.disabled = true;
-        confirmBtn.innerText = "同步扣張中...";
+        confirmBtn.innerText = "系統確認中...";
         topVipBtn.disabled = true;
 
-        const syncResult = await syncTicketsToDatabase(-100);
+        const syncResult = await syncTicketsToDatabase(-100, "", "vipRedeem");
         if (!syncResult.success) {
-            alert(`兌換失敗：${syncResult.message}`);
+            alert(syncResult.uncertain ? "系統正在確認兌換結果，請稍後再按一次；同一筆交易不會重複扣券。" : `兌換失敗：${syncResult.message}`);
             confirmBtn.disabled = false;
             confirmBtn.innerText = "確認兌換";
             topVipBtn.disabled = false;
@@ -1425,11 +1480,11 @@
 
         if (confirm("確定要消耗 150 張抽獎券，立刻進行【黃金重抽】(保底至少 5 台紅色爆分房) 嗎？")) {
             goldBtn.disabled = true;
-            goldBtn.innerText = "同步扣張中...";
+            goldBtn.innerText = "系統確認中...";
 
-            const syncResult = await syncTicketsToDatabase(-150);
+            const syncResult = await syncTicketsToDatabase(-150, "", "goldRedeem");
             if (!syncResult.success) {
-                alert(`兌換失敗：${syncResult.message}`);
+                alert(syncResult.uncertain ? "系統正在確認兌換結果，請稍後再按一次；同一筆交易不會重複扣券。" : `兌換失敗：${syncResult.message}`);
                 goldBtn.disabled = false;
                 goldBtn.innerText = "兌換 黃金重抽 (消耗 150張)";
                 return; 
