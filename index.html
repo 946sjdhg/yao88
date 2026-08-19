@@ -1523,7 +1523,22 @@
         const vipId = Math.floor(Math.random() * maxRoom) + 1;
         const vipRate = Math.floor(Math.random() * 3) + 97; 
         
-        const vipPool = dbSignalsPool.length > 0 ? dbSignalsPool : APP_BUILTIN_SIGNALS;
+        // VIP 房必須鎖定「目前遊戲」自己的訊號池，
+        // 不可沿用上一款遊戲的共用 dbSignalsPool，也不可退回戰神賽特通用訊號。
+        const currentGameName = gameName;
+        const cachedVipPool = getCachedSignalPool(currentGameName);
+        const gameFallbackPool = [...getFallbackSignals(currentGameName)];
+
+        let vipPool = [];
+        if (cachedVipPool.length > 0) {
+            vipPool = cachedVipPool;
+        } else if (gameFallbackPool.length > 0) {
+            vipPool = gameFallbackPool;
+        } else {
+            // 最後一道保護：若該遊戲暫時沒有資料，也不要混用其他遊戲訊號。
+            vipPool = ["訊號：目前遊戲訊號同步中，請稍後重新兌換"];
+        }
+
         const randomVipSignal = vipPool[Math.floor(Math.random() * vipPool.length)];
         const vipSignal = "🔥 VIP精準狙擊：" + randomVipSignal.replace("訊號：", "");
 
